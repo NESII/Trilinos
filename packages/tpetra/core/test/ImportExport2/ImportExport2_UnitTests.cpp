@@ -111,13 +111,12 @@ namespace {
   using Tpetra::createContigMap;
   using Tpetra::CrsGraph;
   using Tpetra::CrsMatrix;
-  using Tpetra::DynamicProfile;
+  using Tpetra::StaticProfile;
   using Tpetra::Export;
   using Tpetra::Import;
   using Tpetra::INSERT;
   using Tpetra::Map;
   using Tpetra::REPLACE;
-  using Tpetra::StaticProfile;
 
   using std::cerr;
   using std::cout;
@@ -271,10 +270,10 @@ namespace {
         out << "Creating source and target CrsGraphs" << endl;
       }
       RCP<CrsGraph<LO, GO> > src_graph =
-        rcp (new CrsGraph<LO, GO> (src_map, 1, DynamicProfile,
+        rcp (new CrsGraph<LO, GO> (src_map, 1, StaticProfile,
                                    getCrsGraphParameterList ()));
       RCP<CrsGraph<LO, GO> > tgt_graph =
-        rcp (new CrsGraph<LO, GO> (tgt_map, 1, DynamicProfile,
+        rcp (new CrsGraph<LO, GO> (tgt_map, 1, StaticProfile,
                                    getCrsGraphParameterList ()));
 
       // Create a simple diagonal source graph.
@@ -343,10 +342,10 @@ namespace {
           createContigMap<LO, GO> (INVALID, tgt_num_local, comm);
 
         RCP<CrsGraph<LO, GO> > src_graph =
-          rcp (new CrsGraph<LO, GO> (src_map, 24, DynamicProfile,
+          rcp (new CrsGraph<LO, GO> (src_map, 24, StaticProfile,
                                      getCrsGraphParameterList ()));
         RCP<CrsGraph<LO, GO> > tgt_graph =
-          rcp (new CrsGraph<LO, GO> (tgt_map, 24, DynamicProfile,
+          rcp (new CrsGraph<LO, GO> (tgt_map, 24, StaticProfile,
                                      getCrsGraphParameterList ()));
 
         // This time make src_graph be a full lower-triangular graph.
@@ -618,9 +617,9 @@ namespace {
           createContigMap<LO, GO> (INVALID, tgt_num_local, comm);
 
         RCP<CrsMatrix<Scalar, LO, GO> > src_mat =
-          rcp (new CrsMatrix<Scalar, LO, GO> (src_map, 24, DynamicProfile, crsMatPlist));
+          rcp (new CrsMatrix<Scalar, LO, GO> (src_map, 24, StaticProfile, crsMatPlist));
         RCP<CrsMatrix<Scalar, LO, GO> > tgt_mat =
-          rcp (new CrsMatrix<Scalar, LO, GO> (tgt_map, 24, DynamicProfile, crsMatPlist));
+          rcp (new CrsMatrix<Scalar, LO, GO> (tgt_map, 24, StaticProfile, crsMatPlist));
 
         // This time make src_mat a full lower-triangular matrix.  Each
         // row of column-indices will have length 'globalrow', and
