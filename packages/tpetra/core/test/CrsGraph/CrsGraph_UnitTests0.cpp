@@ -64,7 +64,6 @@ namespace {
     return determineLocalTriangularStructure (G_lcl, lclRowMap, lclColMap, true);
   }
 
-  using Tpetra::DynamicProfile;
   using Tpetra::ProfileType;
   using Tpetra::StaticProfile;
   using Teuchos::arcp;
@@ -223,7 +222,7 @@ namespace {
       Array<GO> gids(1);
       gids[0] = myRank*numLocal+numLocal;    // off this node, except on the last proc, where it is off the map
       // bad gid on the last node (not in domain map), discovered at fillComplete()
-      GRAPH goodgraph(map,1);
+      GRAPH goodgraph(map,1,StaticProfile);
       goodgraph.insertGlobalIndices(map->getMinGlobalIndex(),gids());
       TEST_THROW( goodgraph.fillComplete(), std::runtime_error );
     }
@@ -303,8 +302,8 @@ namespace {
         params->set ("compute local triangular constants", true);
       }
 
-      // create dynamic-profile graph, fill-complete without inserting (and therefore, without allocating)
-      GRPH graph (map, 3, DynamicProfile);
+      // create static-profile graph, fill-complete without inserting (and therefore, without allocating)
+      GRPH graph (map, 3, StaticProfile);
       for (GO i = map->getMinGlobalIndex(); i <= map->getMaxGlobalIndex(); ++i) {
         graph.insertGlobalIndices (i, tuple<GO> (i));
       }
@@ -442,10 +441,9 @@ namespace {
         params->set ("compute local triangular constants", true);
       }
 
-      for (int T=0; T<4; ++T) {
-        ProfileType pftype = ( (T & 1) == 1 ) ? StaticProfile : DynamicProfile;
-        params->set("Optimize Storage",((T & 2) == 2));
-        GRAPH trigraph(rmap,cmap, ginds.size(),pftype);   // only allocate as much room as necessary
+      for (int T=0; T<2; ++T) {
+        params->set("Optimize Storage",(T == 1));
+        GRAPH trigraph(rmap,cmap, ginds.size(), StaticProfile);   // only allocate as much room as necessary
         Array<GO> GCopy(4); Array<LO> LCopy(4);
         ArrayView<const GO> GView;
         ArrayView<const LO> LView;
@@ -464,9 +462,7 @@ namespace {
         // If StaticProfile, then attempt to insert one additional entry
         // in my row that is not already in the row, and verify that it
         // throws an exception.
-        if (pftype == StaticProfile) {
-          TEST_THROW( trigraph.insertGlobalIndices(myrowind,tuple<GO>(myrowind+2)), std::runtime_error );
-        }
+        TEST_THROW( trigraph.insertGlobalIndices(myrowind,tuple<GO>(myrowind+2)), std::runtime_error );
         trigraph.fillComplete(params);
         // check that inserting global entries throws (inserting local entries is still allowed)
         {
@@ -638,7 +634,7 @@ namespace {
         RCP<row_graph_type> zero;
         {
           // allocate with no space
-          RCP<crs_graph_type> zero_crs = rcp (new crs_graph_type (map, 0));
+          RCP<crs_graph_type> zero_crs = rcp (new crs_graph_type (map, 0, StaticProfile));
           // invalid, because none are allocated yet
           TEST_EQUALITY_CONST( zero_crs->getNodeAllocationSize(), STINV );
           if (clts == 3) {
@@ -697,7 +693,7 @@ namespace {
         RCP<row_graph_type> zero;
         {
           // allocate with no space
-          RCP<crs_graph_type> zero_crs = rcp (new crs_graph_type (map, 0));
+          RCP<crs_graph_type> zero_crs = rcp (new crs_graph_type (map, 0, StaticProfile));
           // invalid, because none are allocated yet
           TEST_EQUALITY_CONST( zero_crs->getNodeAllocationSize(), STINV );
           if (clts == 3) {
@@ -774,7 +770,7 @@ namespace {
     for (int clts : {0, 1, 2, 3}) {
       {
         // allocated with space for one entry per row
-        RCP<graph_type> zero_crs = rcp (new graph_type (map,1));
+        RCP<graph_type> zero_crs = rcp (new graph_type (map,1,StaticProfile));
         TEST_EQUALITY( zero_crs->getNodeAllocationSize(), STINV ); // zero, because none are allocated yet
 
         if (clts == 3) {
@@ -836,10 +832,10 @@ namespace {
     RCP<const map_type> map = rcp (new map_type (INVALID, numLocal, 0, comm));
     GO mymiddle = map->getGlobalElement(1);  // get my middle row
 
-    for (int T=0; T<4; ++T) {
-      ProfileType pftype = ( (T & 1) == 1 ) ? StaticProfile : DynamicProfile;
+    for (int T=0; T<2; ++T) {
+      ProfileType pftype = StaticProfile;
       RCP<ParameterList> params = parameterList ();
-      params->set("Optimize Storage",((T & 2) == 2));
+      params->set("Optimize Storage",(T == 1));
 
       // Test (GitHub Issue) #2565 fix, while we're at it.
       //
@@ -862,11 +858,9 @@ namespace {
         ddgraph.getGlobalRowView(mymiddle-1,myrow_gbl); TEST_EQUALITY( myrow_gbl.size(), 0 );
         ddgraph.getGlobalRowView(mymiddle  ,myrow_gbl); TEST_COMPARE_ARRAYS( myrow_gbl, tuple<GO>(mymiddle) );
         ddgraph.getGlobalRowView(mymiddle+1,myrow_gbl); TEST_EQUALITY( myrow_gbl.size(), 0 );
-        if (pftype == StaticProfile) { // no room for more, on any row
-          TEST_THROW( ddgraph.insertGlobalIndices(mymiddle-1,tuple<GO>(mymiddle+1)), std::runtime_error );
-          TEST_THROW( ddgraph.insertGlobalIndices(mymiddle  ,tuple<GO>(mymiddle+1)), std::runtime_error );
-          TEST_THROW( ddgraph.insertGlobalIndices(mymiddle+1,tuple<GO>(mymiddle+1)), std::runtime_error );
-        }
+	TEST_THROW( ddgraph.insertGlobalIndices(mymiddle-1,tuple<GO>(mymiddle+1)), std::runtime_error );
+	TEST_THROW( ddgraph.insertGlobalIndices(mymiddle  ,tuple<GO>(mymiddle+1)), std::runtime_error );
+	TEST_THROW( ddgraph.insertGlobalIndices(mymiddle+1,tuple<GO>(mymiddle+1)), std::runtime_error );
         ddgraph.fillComplete(params);
         // after fillComplete(), there should be a single entry on my middle, corresponding to the diagonal, none on the others
         ArrayView<const LO> myrow_lcl;
@@ -897,8 +891,8 @@ namespace {
   }
 
 
-  ////
-  TEUCHOS_UNIT_TEST_TEMPLATE_3_DECL( CrsGraph, NonLocals, LO, GO , Node )
+  //// disabling, as this requires dynamic profile
+  /*TEUCHOS_UNIT_TEST_TEMPLATE_3_DECL( CrsGraph, NonLocals, LO, GO , Node )
   {
     using Teuchos::as;
     using std::endl;
@@ -1108,8 +1102,7 @@ namespace {
     int globalSuccess_int = -1;
     reduceAll( *comm, REDUCE_SUM, success ? 0 : 1, outArg(globalSuccess_int) );
     TEST_EQUALITY_CONST( globalSuccess_int, 0 );
-  }
-
+    }*/
 
   ////
   TEUCHOS_UNIT_TEST_TEMPLATE_3_DECL( CrsGraph, NodeConversion, LO, GO, N2 )
@@ -1193,7 +1186,7 @@ namespace {
     {
       RCP<ParameterList> plClone = parameterList();
       plClone->set("fillComplete clone",false);
-      plClone->set("Static profile clone",false);
+      plClone->set("Static profile clone",true);
       // default: plClone->set("Locally indexed clone",false);
       RCP<Graph2> A2 = A1->template clone<N2>(n2,plClone);
       TEST_EQUALITY_CONST( A2->hasColMap(), false );
@@ -1275,7 +1268,7 @@ namespace {
       TEUCHOS_UNIT_TEST_TEMPLATE_3_INSTANT( CrsGraph, ExcessAllocation,  LO, GO, NODE ) \
       TEUCHOS_UNIT_TEST_TEMPLATE_3_INSTANT( CrsGraph, BadConst,          LO, GO, NODE ) \
       TEUCHOS_UNIT_TEST_TEMPLATE_3_INSTANT( CrsGraph, insert_remove_LIDs, LO, GO, NODE ) \
-      TEUCHOS_UNIT_TEST_TEMPLATE_3_INSTANT( CrsGraph, NonLocals,         LO, GO, NODE ) \
+      //TEUCHOS_UNIT_TEST_TEMPLATE_3_INSTANT( CrsGraph, NonLocals,         LO, GO, NODE ) \
       TEUCHOS_UNIT_TEST_TEMPLATE_3_INSTANT( CrsGraph, DottedDiag,        LO, GO, NODE ) \
       TEUCHOS_UNIT_TEST_TEMPLATE_3_INSTANT( CrsGraph, WithStaticProfile, LO, GO, NODE ) \
       TEUCHOS_UNIT_TEST_TEMPLATE_3_INSTANT( CrsGraph, CopiesAndViews,    LO, GO, NODE )
