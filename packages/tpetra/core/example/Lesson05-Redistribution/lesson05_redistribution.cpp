@@ -82,8 +82,8 @@ createMatrix (const Teuchos::RCP<const typename CrsMatrixType::map_type>& map)
   // Time the whole scope of this routine, not counting timer lookup.
   TimeMonitor monitor (*timer);
 
-  // Create a Tpetra::Matrix using the Map, with dynamic allocation.
-  RCP<CrsMatrixType> A (new CrsMatrixType (map, 3));
+  // Create a Tpetra::Matrix using the Map, with static allocation.
+  RCP<CrsMatrixType> A (new CrsMatrixType (map, 3, Tpetra::StaticProfile));
 
   // Add rows one at a time.  Off diagonal values will always be -1.
   const scalar_type two    = static_cast<scalar_type> ( 2.0);
@@ -211,7 +211,7 @@ example (const Teuchos::RCP<const Teuchos::Comm<int> >& comm,
     export_type exporter (procZeroMap, globalMap);
 
     // Make a new sparse matrix whose row map is the global Map.
-    B = rcp (new crs_matrix_type (globalMap, 0));
+    B = rcp (new crs_matrix_type (globalMap, 3, Tpetra::StaticProfile));
 
     // Redistribute the data, NOT in place, from matrix A (which lives
     // entirely on Proc 0) to matrix B (which is distributed evenly over
